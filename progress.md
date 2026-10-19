@@ -17,12 +17,12 @@ Mid-sem scope = Increments 1–4 below, at minimum. Everything past that is
 
 | # | Increment | Status | Notes |
 |---|---|---|---|
-| 1 | Foundation (auth, skeleton, DB, deploy pipeline) | In Progress | Design tokens, AppShell layout route, `components/common/` primitive set, Prisma schema + migration, and the backend auth flow (register/login/me with tests) are done; frontend login, rate limiting, `TEST_DATABASE_URL` and deploy pipeline still open |
-| 2 | Transactions (CRUD, idempotency) | Done | CRUD + idempotent creation over HTTP, integration tests passing. Budget increment is wired into create (see Budgets). Frontend has no edit/delete yet — the page only creates, lists, filters and deletes |
+| 1 | Foundation (auth, skeleton, DB, deploy pipeline) | In Progress | Design tokens, AppShell layout route, `components/common/` primitive set, Prisma schema + migration, the backend auth flow (register/login/me with tests), and the real frontend login/register pages with a persisted `authStore` and route protection are done; rate limiting, `TEST_DATABASE_URL` and deploy pipeline still open |
+| 2 | Transactions (CRUD, idempotency) | Done | CRUD + idempotent creation; unit and client tests pass, DB integration suite written but unrun. Budget increment is wired into create (see Budgets). Frontend creates, lists, filters, edits and deletes through the shared modal form |
 | 3 | Budgets (utilization, concurrency-safe update) | In Progress | Service, routes, controller, validator, the atomic increment and the pure threshold maths are done, and a transaction increments its budget inside the same `$transaction`. `BudgetsPage` with `BudgetCard`/`BudgetProgress`/`BudgetForm` is built and the alert chain is verified live against Neon. CRUD + concurrency integration tests are still unrun — blocked on `TEST_DATABASE_URL` |
 | 4 | Savings Goals | In Progress | Backend service, CRUD routes/controller/validator and tests are done (`/api/savings-goals`, unit tests passing). `GoalsPage`/`GoalCard`/`GoalForm` are built with 45 component tests and a page integration suite; the DB-backed HTTP suite is written but unrun — blocked on `TEST_DATABASE_URL` |
 | 5 | Dashboard | In Progress | Aggregation endpoint (`GET /api/dashboard`) and the full dashboard UI (summary cards, category chart, recent list, skeleton loading) are done; unit + component tests pass and the endpoint was manually verified against 540 seeded rows, but the DB-backed HTTP suite is unrun — blocked on `TEST_DATABASE_URL` |
-| 6 | Subscriptions | Not Started | |
+| 6 | Subscriptions | In Progress | Backend service, CRUD routes/controller/validator and the pure rollup/renewal maths are done at `/api/subscriptions`, with unit + client tests passing. `SubscriptionsPage`/`SubscriptionCard`/`SubscriptionForm` are built. The DB-backed HTTP suite is written but unrun — blocked on `TEST_DATABASE_URL` |
 | 7 | Rule Engine | Not Started | |
 | 8 | Forecasting | Not Started | |
 | 9 | Anomaly Flagging | Not Started | |
@@ -55,7 +55,10 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 - [ ] `TEST_DATABASE_URL` set in `server/.env` — integration tests refuse to
       run without it, so they cannot delete rows from the development
       database. Do this before adding demo data
-- [ ] Seed script for demo data
+- [x] Demo seed script — `server/prisma/seedDemo.js` via
+      `npm run db:seed:demo`. Resets the demo user's financial data and seeds
+      categorized current/prior-month transactions, six budgets with matching
+      spend, three goals and four subscriptions
 
 ### Auth
 
@@ -68,9 +71,9 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 - [x] `lib/errors.js` typed errors + `middleware/errorHandler.js`
       (`{ error: { code, message } }`, Prisma + Zod errors mapped, never a
       stack trace in any environment)
-- [ ] Frontend login/register pages (placeholder `/login` route exists so the
-      shell's logout has somewhere to land; `authStore.js` is still a
-      placeholder identity with a demo sign-in)
+- [x] Frontend login/register pages — centered auth cards with inline
+      field validation, persisted Zustand session (`authStore.js`), toast
+      handling for server errors, and `RequireAuth` route protection
 - [x] Tests: auth integration test — register → login → `/me` against a real
       database; plus 12 unit tests for `authService` with Prisma and bcrypt
       mocked
@@ -120,9 +123,14 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 - [x] Prisma model
 - [x] `transactionService.createTransaction` with idempotency check
 - [x] CRUD routes/controllers
-- [x] Frontend transaction list + form
-- [x] Tests: idempotency test, CRUD integration test
-- [ ] Frontend edit and delete (the page deletes; editing is service-only so far)
+- [x] Frontend transaction list + form — modal create/edit form, filter bar,
+      responsive table/card rows, skeleton loading and empty states
+- [x] Category pickers load real UUIDs from `GET /api/categories` for both the
+      filter bar and the form; no hardcoded placeholder ids remain
+- [x] Tests: idempotency unit suite and client form/page suites; the DB CRUD
+      integration suite is written but unrun
+- [x] Frontend edit and delete — the row edit action reuses `TransactionForm`
+      in edit mode (PATCH) and delete removes the row
 
 ### Budgets
 
@@ -242,9 +250,31 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 
 ### Subscriptions
 
-- [ ] Prisma model
-- [ ] CRUD + rollup calculation
-- [ ] Frontend view
+- [x] Prisma model (`Subscription`, `SubscriptionFrequency` monthly/yearly)
+- [x] CRUD routes/controllers/validator (`GET|POST /api/subscriptions`,
+      `GET|PATCH|DELETE /api/subscriptions/:id`), all user-scoped
+- [x] `subscriptionMath.rollupSubscriptions` — pure monthly/annual rollup:
+      monthly bills add their amount, yearly bills add `round(amount / 12)` to
+      the monthly total; the annual total uses actual yearly amounts, so
+      monthly × 12 can differ by a few paise from the authoritative annual
+      figure. Unit-tested for empty, monthly, yearly, mixed and rounding cases
+- [x] Renewal math — `daysUntilRenewal` counts whole UTC calendar days;
+      `toSubscriptionView` adds `daysUntilRenewal`, `isRenewalSoon` (0–7 days)
+      and `isRenewalOverdue`
+- [x] Frontend — `SubscriptionsPage` summary strip (bold monthly + annual
+      totals), one `SubscriptionCard` per service with an initial badge,
+      amount/frequency and warning-amber renewal badge within 7 days,
+      top-bar "Add Subscription" action, create/edit modal form, delete with
+      confirmation, skeleton loading, empty state and retry banner
+- [x] Tests: server unit suite covers the pure rollup (including a multi-item
+      monthly/yearly mix), renewal arithmetic, CRUD scoping and validators;
+      client card/form/page suites cover totals, edit/delete and empty/error
+      states. The page test asserts the summary strip equals the pure mixed
+      rollup; the card test pins the warning boundary (7 days warns, 8 does
+      not); a theme-token test checks the amber pair in both light and dark
+- [ ] DB-backed HTTP integration suite is written
+      (`tests/integration/subscription.test.js`) but unrun — blocked on
+      `TEST_DATABASE_URL`
 
 ### Rule Engine
 
@@ -291,7 +321,7 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 - [ ] Backend deployed to Render
 - [ ] Frontend deployed to Vercel
 - [ ] Database provisioned on Neon/Supabase
-- [ ] Seed script for demo data
+- [x] Seed script for demo data (`npm run db:seed:demo`)
 - [ ] Demo video recorded
 
 ## Known deviations from the original plan
@@ -524,6 +554,15 @@ test:integration` runs the DB-backed suites and still refuses to start
   the toast queue caps at four. Note for later: Tailwind's `transition-colors`
   includes `outline-color`, so the focus ring fades in over 200ms — sample
   focus styles after the transition, not immediately after focusing.
+
+- 2026-10-19 — Transaction category pickers (filter and form) now load the
+  user's categories from `GET /api/categories` instead of the hardcoded
+  `'food'`-style strings. Those strings were rejected by the server's UUID
+  validator, so any chosen category failed with 400; both pickers now send real
+  ids. The row edit action reuses `TransactionForm` in edit mode (PATCH), so
+  create and edit share one form instead of a second copy. The 2026-10-16 note
+  about a placeholder `/login` and demo sign-in is superseded: the real
+  `LoginPage`/`RegisterPage` and `authStore` are in place.
 
 ## Open questions / decisions still needed
 
