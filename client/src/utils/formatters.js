@@ -79,6 +79,26 @@ export function currentPeriod() {
   return todayIso().slice(0, 7);
 }
 
+/**
+ * "2027-01-31" or its ISO timestamp -> "Jan 2027".
+ *
+ * A deadline is a calendar date, so the month is read in UTC. Using the local
+ * timezone would show "Dec 2026" to a user west of UTC for a deadline that is
+ * stored as 2027-01-31T00:00:00Z - the previous day, and sometimes the previous
+ * month, in their clock.
+ */
+export function formatMonthYear(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleDateString('en-IN', {
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 /** "2026-10" -> "October 2026". Anything unparseable passes through. */
 export function formatPeriod(period) {
   if (!period) return '';

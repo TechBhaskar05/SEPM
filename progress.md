@@ -20,7 +20,7 @@ Mid-sem scope = Increments 1–4 below, at minimum. Everything past that is
 | 1 | Foundation (auth, skeleton, DB, deploy pipeline) | In Progress | Design tokens, AppShell layout route, `components/common/` primitive set, Prisma schema + migration, and the backend auth flow (register/login/me with tests) are done; frontend login, rate limiting, `TEST_DATABASE_URL` and deploy pipeline still open |
 | 2 | Transactions (CRUD, idempotency) | Done | CRUD + idempotent creation over HTTP, integration tests passing. Budget increment is wired into create (see Budgets). Frontend has no edit/delete yet — the page only creates, lists, filters and deletes |
 | 3 | Budgets (utilization, concurrency-safe update) | In Progress | Service, routes, controller, validator, the atomic increment and the pure threshold maths are done, and a transaction increments its budget inside the same `$transaction`. `BudgetsPage` with `BudgetCard`/`BudgetProgress`/`BudgetForm` is built and the alert chain is verified live against Neon. CRUD + concurrency integration tests are still unrun — blocked on `TEST_DATABASE_URL` |
-| 4 | Savings Goals | In Progress | Backend service, CRUD routes/controller/validator and tests are done (`/api/savings-goals`, unit tests passing). Frontend goal view still open; the DB-backed HTTP suite is written but unrun — blocked on `TEST_DATABASE_URL` |
+| 4 | Savings Goals | In Progress | Backend service, CRUD routes/controller/validator and tests are done (`/api/savings-goals`, unit tests passing). `GoalsPage`/`GoalCard`/`GoalForm` are built with 45 component tests and a page integration suite; the DB-backed HTTP suite is written but unrun — blocked on `TEST_DATABASE_URL` |
 | 5 | Dashboard | In Progress | Aggregation endpoint (`GET /api/dashboard`) and the full dashboard UI (summary cards, category chart, recent list, skeleton loading) are done; unit + component tests pass and the endpoint was manually verified against 540 seeded rows, but the DB-backed HTTP suite is unrun — blocked on `TEST_DATABASE_URL` |
 | 6 | Subscriptions | Not Started | |
 | 7 | Rule Engine | Not Started | |
@@ -36,6 +36,7 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 ## Feature-level detail (update as work happens)
 
 ### Database (Prisma schema + migration)
+
 - [x] `server/prisma/schema.prisma` — all 9 models from `database-schema.md`
       (`User`, `Category`, `Transaction`, `Budget`, `SavingsGoal`,
       `Subscription`, `FinancialRule`, `IdempotencyKey`, `Activity`),
@@ -57,6 +58,7 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 - [ ] Seed script for demo data
 
 ### Auth
+
 - [x] Register endpoint — `POST /api/auth/register`, bcrypt at cost 12
 - [x] Login endpoint + JWT issuance — `POST /api/auth/login`, HS256, 1h TTL
 - [x] Auth middleware — `authMiddleware.js` verifies the bearer token and
@@ -76,6 +78,7 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       lands)
 
 ### Layout / shell (design tokens + AppShell)
+
 - [x] Tailwind v4 token set, light + dark (`client/tailwind.config.js`,
       `client/src/index.css`)
 - [x] `ThemeToggle` + `uiStore` theme persistence with no flash of wrong theme
@@ -89,6 +92,7 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 - [ ] No component tests yet — shell has only lint + build coverage
 
 ### Common primitives (`components/common/`)
+
 - [x] `Button` — primary/secondary/ghost/danger × sm/md/lg, loading state that
       holds the label's width, disabled state (dimmed, `cursor-not-allowed`,
       hover gated on `enabled:`), icon slots, `fullWidth`
@@ -112,6 +116,7 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       should get Vitest + Testing Library tests once the test setup lands
 
 ### Transactions
+
 - [x] Prisma model
 - [x] `transactionService.createTransaction` with idempotency check
 - [x] CRUD routes/controllers
@@ -120,13 +125,14 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 - [ ] Frontend edit and delete (the page deletes; editing is service-only so far)
 
 ### Budgets
+
 - [x] Prisma model
 - [x] `budgetService` atomic increment logic — `applyTransactionToBudget(budgetId,
-      amount, client)`, a single `{ spent: { increment } }` statement, taking an
+    amount, client)`, a single `{ spent: { increment } }` statement, taking an
       optional client so it can run inside a caller's `$transaction`
 - [x] Threshold alert logic — `evaluateThresholds(spent, limitAmount)` and
       `calculateUtilization` are pure; 80% fires as `approaching`, 100% as
-      `exceeded`. A transaction only reports the thresholds *it* crossed, worked
+      `exceeded`. A transaction only reports the thresholds _it_ crossed, worked
       out from `spent - amount` on the value the atomic update returned, so it
       does not re-alert on every later expense
 - [x] CRUD routes/controllers/validator (`GET|POST /api/budgets`,
@@ -161,6 +167,7 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       inside the same `$transaction`
 
 ### Savings Goals
+
 - [x] Prisma model (already part of the initial migration)
 - [x] `goalService.calculateRequiredMonthlyContribution(goal)` — pure function
       (maths in `goalMath.js`, re-exported by `goalService.js`); integer paise,
@@ -172,7 +179,22 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       service CRUD, validator rules) — passing. The HTTP CRUD suite in
       `tests/integration/goal.test.js` is written but unrun: no
       `TEST_DATABASE_URL` on this machine
-- [ ] Frontend goal view
+- [x] Frontend goal view — `GoalsPage.jsx` is a vertical list of full-width
+      `GoalCard`s, each with a circular progress ring, a muted `Due Mon YYYY`
+      badge, `Saved ₹X of ₹Y`, and the monthly contribution highlighted in a
+      primary chip. Achieved goals switch to `Goal reached! 🎉` with a success
+      ring and outlined card; overdue goals ask for the remainder now rather
+      than per month. `GoalForm` in a `Modal` covers name, target, saved-so-far
+      and deadline, supports create/edit, and converts rupees to integer paise.
+      45 new client tests across the ring, card, form and page; client suite 88
+      passing. Verified through the real forms in headless Chrome at 375px with
+      an in-memory adapter that still calls the server's `toGoalView`: a
+      ₹1,20,000 target with ₹30,000 saved and two months left showed
+      ₹45,000/month (manual check matched); a past deadline showed the
+      ₹1,50,000 remainder due now with no NaN; saving to target switched to the
+      success state; light and dark both rendered with 112px rings, 343px cards
+      and no horizontal overflow. No database was available, so the HTTP
+      integration suite remains unrun
 
 ### Dashboard
 - [x] `dashboardService` aggregation — `totalBalance` (all-time income −
@@ -219,11 +241,13 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       callout is absent when `aiSummary` is `null`
 
 ### Subscriptions
+
 - [ ] Prisma model
 - [ ] CRUD + rollup calculation
 - [ ] Frontend view
 
 ### Rule Engine
+
 - [ ] Prisma model
 - [ ] `ruleEngineService.evaluate(transaction, rules)`
 - [ ] Priority ordering + first-match logic
@@ -231,20 +255,24 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 - [ ] Tests: priority/tie-break unit tests
 
 ### Forecasting
+
 - [ ] `forecastService` (moving average / regression)
 - [ ] Frontend chart
 - [ ] Tests: known-series unit test
 
 ### Anomaly Flagging
+
 - [ ] `anomalyService` threshold check
 - [ ] Integration with AI explanation text
 - [ ] Tests: unit test for threshold logic
 
 ### Reports
+
 - [ ] `reportService` (each report type)
 - [ ] Frontend report pages
 
 ### AI Enhancements
+
 - [ ] `aiService` Groq client setup
 - [ ] Categorization suggestion endpoint + fallback
 - [ ] Summary narrative endpoint + fallback
@@ -253,11 +281,13 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       cases)
 
 ### Hardening & Testing
+
 - [ ] Full test suite passing
 - [ ] Rate limiting on write + AI endpoints
 - [ ] Security review (no secrets committed, helmet configured, etc.)
 
 ### Deployment
+
 - [ ] Backend deployed to Render
 - [ ] Frontend deployed to Vercel
 - [ ] Database provisioned on Neon/Supabase
@@ -328,8 +358,21 @@ feature descoped, a different library used, a schema field renamed.)
   floor for the case where there is no sibling.
 - 2026-10-19 — Creating an expense may attach a `budgetAlert` to the transaction
   response (and therefore to the stored idempotent body), reporting only the
-  thresholds *that transaction* crossed. Replays return it verbatim, so a retry
+  thresholds _that transaction_ crossed. Replays return it verbatim, so a retry
   does not re-raise an alert the user already saw.
+- 2026-10-19 — Local development defaults to port **5001**, not 5000. macOS
+  AirPlay Receiver (ControlCenter) owns 5000 on both IPv4 and IPv6 and answers
+  every request with AirTunes's 403, while the Express server still logs
+  "listening on port 5000" — the symptom looks like a broken API rather than a
+  port collision. Render supplies `PORT`, so production is unaffected.
+- 2026-10-19 — `npm test` now runs the unit suites only. `npm run
+test:integration` runs the DB-backed suites and still refuses to start
+  without `TEST_DATABASE_URL`; `npm run test:all` runs everything and therefore
+  needs a test database. This makes the default test command meaningful on a
+  machine with no database without weakening the integration guard. A fresh
+  `npm install` also runs `prisma generate` (postinstall), because the generated
+  client is gitignored and its absence made even the unit tests fail on a clean
+  clone.
 - 2026-10-19 — Goal contribution maths rounds **up** to a whole paisa and treats
   an overdue goal as the whole remainder due now. Rounding down would leave the
   goal short at the deadline, and returning 0 for a past deadline would claim
@@ -339,6 +382,31 @@ feature descoped, a different library used, a schema field renamed.)
   contribution. The validator deliberately accepts past deadlines so an
   already-missed goal can be recorded and returned with `isOverdue: true`;
   rejecting them would make that edge case unreachable.
+- 2026-10-19 — The goals page is a **vertical list of full-width cards**, not a
+  grid like budgets. A goal card carries more prose (saved/target plus the
+  monthly-contribution sentence), and at three columns those lines wrap into a
+  wall; one column lets each goal read as a plan. The progress indicator is a
+  **circular ring** rather than `BudgetProgress`'s bar, so goals and budgets are
+  distinguishable by shape before a single label is read. On phones the ring
+  stacks above the saved/contribution block: side by side at 375px left the
+  monthly chip only ~174px wide, which wrapped it to four lines and made the
+  "small chip" the tallest element on the card. Stacking gives it the full card
+  width, keeps `Saved ₹X of ₹Y` on one line, and still places the ring beside
+  the text from `sm` up.
+- 2026-10-19 — The monthly contribution is a highlighted primary chip, not
+  muted body text: it is the card's actionable answer. A met goal replaces it
+  with `Goal reached! 🎉`, switches the ring and border to the success palette,
+  and never shows a negative or zero contribution. An overdue goal asks for the
+  whole remainder **now** rather than repeating "/month to reach this on time",
+  which would be false once the deadline has passed. The server's
+  `requiredMonthlyContribution`, `progressPercent`, `isAchieved` and `isOverdue`
+  are rendered directly; the card never re-derives them.
+- 2026-10-19 — Goal card tests feed fixtures through the server's real
+  `toGoalView`, like the budget tests use `toBudgetView`, so the assertions about
+  the contribution and the achieved/overdue branches move with the service
+  rather than with a hand-written payload. Deadline months are formatted in UTC
+  (`formatMonthYear`), because a `YYYY-MM-DD` deadline is a calendar date: local
+  formatting would show the previous month to users west of Greenwich.
 
 - 2026-10-18 — Integration tests **require** `TEST_DATABASE_URL` and throw
   rather than falling back to `DATABASE_URL`. `conventions.md` suggests "a test
@@ -423,7 +491,7 @@ feature descoped, a different library used, a schema field renamed.)
   `enabled:` gate a disabled primary button still changes colour on hover,
   which reads as broken rather than disabled.
 - 2026-10-17 — A loading `Button` sets `disabled` (that is what actually stops
-  a double submit) but does not take the disabled *appearance*, and shows
+  a double submit) but does not take the disabled _appearance_, and shows
   `cursor-progress` instead of `cursor-not-allowed`. Dimming means "you cannot
   do this right now"; a spinner means "this is happening right now" — the two
   states should not look the same.
@@ -444,7 +512,7 @@ feature descoped, a different library used, a schema field renamed.)
   `sm:items-end`, which let each toast shrink to its own text and left a ragged
   left edge as soon as two messages differed in length; the column now
   stretches. The same cut used one `flex-col-reverse` for both layouts, which
-  put the *oldest* toast against the bottom edge on mobile — backwards for a
+  put the _oldest_ toast against the bottom edge on mobile — backwards for a
   bottom-anchored stack. Mobile is now newest-at-the-bottom edge, desktop
   newest-at-the-top-right corner, which is what the two anchors each want.
 - 2026-10-17 — Verified in Chrome (CDP, real clicks and key events) rather than

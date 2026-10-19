@@ -8,7 +8,7 @@ import axios from 'axios';
  * default server port even before a .env exists.
  */
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api',
   headers: { 'Content-Type': 'application/json' },
   // A hung request is indistinguishable from a slow one on the UI's side of
   // the wire; capping it turns "spinner forever" into a message the user can
