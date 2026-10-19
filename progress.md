@@ -20,7 +20,7 @@ Mid-sem scope = Increments 1–4 below, at minimum. Everything past that is
 | 1   | Foundation (auth, skeleton, DB, deploy pipeline)        | In Progress | Design tokens, AppShell layout route, `components/common/` primitive set, Prisma schema + migration, and the backend auth flow (register/login/me with tests) are done; frontend login, rate limiting, `TEST_DATABASE_URL` and deploy pipeline still open                                                                                                                                   |
 | 2   | Transactions (CRUD, idempotency)                        | Done        | CRUD + idempotent creation over HTTP, integration tests passing. Budget increment is wired into create (see Budgets). Frontend has no edit/delete yet — the page only creates, lists, filters and deletes                                                                                                                                                                                   |
 | 3   | Budgets (utilization, concurrency-safe update)          | In Progress | Service, routes, controller, validator, the atomic increment and the pure threshold maths are done, and a transaction increments its budget inside the same `$transaction`. `BudgetsPage` with `BudgetCard`/`BudgetProgress`/`BudgetForm` is built and the alert chain is verified live against Neon. CRUD + concurrency integration tests are still unrun — blocked on `TEST_DATABASE_URL` |
-| 4   | Savings Goals                                           | In Progress | Backend service, CRUD routes/controller/validator and tests are done (`/api/savings-goals`, unit tests passing). Frontend goal view still open; the DB-backed HTTP suite is written but unrun — blocked on `TEST_DATABASE_URL`                                                                                                                                                              |
+| 4   | Savings Goals                                           | In Progress | Backend service, CRUD routes/controller/validator and tests are done (`/api/savings-goals`, unit tests passing). `GoalsPage`/`GoalCard`/`GoalForm` are built with 45 component tests and a page integration suite; the DB-backed HTTP suite is written but unrun — blocked on `TEST_DATABASE_URL`                                                                                                                                                              |
 | 5   | Dashboard                                               | Not Started |                                                                                                                                                                                                                                                                                                                                                                                             |
 | 6   | Subscriptions                                           | Not Started |                                                                                                                                                                                                                                                                                                                                                                                             |
 | 7   | Rule Engine                                             | Not Started |                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -179,7 +179,15 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       service CRUD, validator rules) — passing. The HTTP CRUD suite in
       `tests/integration/goal.test.js` is written but unrun: no
       `TEST_DATABASE_URL` on this machine
-- [ ] Frontend goal view
+- [x] Frontend goal view — `GoalsPage.jsx` is a vertical list of full-width
+      `GoalCard`s, each with a circular progress ring, a muted `Due Mon YYYY`
+      badge, `Saved ₹X of ₹Y`, and the monthly contribution highlighted in a
+      primary chip. Achieved goals switch to `Goal reached! 🎉` with a success
+      ring and outlined card; overdue goals ask for the remainder now rather
+      than per month. `GoalForm` in a `Modal` covers name, target, saved-so-far
+      and deadline, supports create/edit, and converts rupees to integer paise.
+      45 new client tests across the ring, card, form and page; client suite 88
+      passing. Verified at 375px-equivalent DOM, not in a live browser yet
 
 ### Dashboard
 
@@ -308,6 +316,26 @@ test:integration` runs the DB-backed suites and still refuses to start
   contribution. The validator deliberately accepts past deadlines so an
   already-missed goal can be recorded and returned with `isOverdue: true`;
   rejecting them would make that edge case unreachable.
+- 2026-10-19 — The goals page is a **vertical list of full-width cards**, not a
+  grid like budgets. A goal card carries more prose (saved/target plus the
+  monthly-contribution sentence), and at three columns those lines wrap into a
+  wall; one column lets each goal read as a plan. The progress indicator is a
+  **circular ring** rather than `BudgetProgress`'s bar, so goals and budgets are
+  distinguishable by shape before a single label is read.
+- 2026-10-19 — The monthly contribution is a highlighted primary chip, not
+  muted body text: it is the card's actionable answer. A met goal replaces it
+  with `Goal reached! 🎉`, switches the ring and border to the success palette,
+  and never shows a negative or zero contribution. An overdue goal asks for the
+  whole remainder **now** rather than repeating "/month to reach this on time",
+  which would be false once the deadline has passed. The server's
+  `requiredMonthlyContribution`, `progressPercent`, `isAchieved` and `isOverdue`
+  are rendered directly; the card never re-derives them.
+- 2026-10-19 — Goal card tests feed fixtures through the server's real
+  `toGoalView`, like the budget tests use `toBudgetView`, so the assertions about
+  the contribution and the achieved/overdue branches move with the service
+  rather than with a hand-written payload. Deadline months are formatted in UTC
+  (`formatMonthYear`), because a `YYYY-MM-DD` deadline is a calendar date: local
+  formatting would show the previous month to users west of Greenwich.
 
 - 2026-10-18 — Integration tests **require** `TEST_DATABASE_URL` and throw
   rather than falling back to `DATABASE_URL`. `conventions.md` suggests "a test
