@@ -76,8 +76,11 @@ per month.
 | deadline | DATE | |
 
 Derived (not stored): `requiredMonthlyContribution =
-(targetAmount - savedAmount) / monthsUntil(deadline)` — computed in
-`goalService.js`, not stored, so it's always current.
+ceil((targetAmount - savedAmount) / monthsUntil(deadline))` — computed in
+`goalService.js` (the pure maths lives in `goalMath.js`), not stored, so it's
+always current. Rounded up to a whole paisa so the goal is never left short. A
+goal already at or above its target requires 0; a deadline in the past requires
+the whole remainder, because there are no months left to spread it over.
 
 ### Subscription
 | Column | Type | Notes |
