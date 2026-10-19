@@ -11,6 +11,7 @@ Express (Node.js) (server)
      ├── Transaction Service        (idempotency-key check on writes)
      ├── Budget Service             (atomic/concurrency-safe updates)
      ├── Goal Service
+     ├── Dashboard Service          (read-only aggregate for the landing page)
      ├── Subscription Service
      ├── Rule Engine Service        (ordered priority evaluator)
      ├── Forecast Service           (moving average / linear regression)
@@ -90,6 +91,7 @@ valid request.** Degrade the feature, not the request.
 |---|---|---|
 | `transactionService` | Transaction CRUD, idempotency | Budget math, categorization logic |
 | `budgetService` | Budget CRUD, atomic spent-increment, utilization % | Deciding which budget a transaction affects (that's passed in) |
+| `dashboardService` | Read-only aggregates: period totals, all-time balance, category breakdown, recent rows | Writing financial rows, AI narrative (that's `aiService`, Phase 11) |
 | `ruleEngineService` | Evaluating rules in priority order against a transaction | Calling AI (that's the caller's job if no rule matches) |
 | `forecastService` | Computing predicted next-period spend from historical data | Displaying it (that's the controller/frontend) |
 | `anomalyService` | Computing whether current spend deviates from historical average beyond threshold | Writing the human-readable explanation (that's `aiService`) |

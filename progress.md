@@ -21,7 +21,7 @@ Mid-sem scope = Increments 1–4 below, at minimum. Everything past that is
 | 2 | Transactions (CRUD, idempotency) | Done | CRUD + idempotent creation over HTTP, integration tests passing. Budget increment is wired into create (see Budgets). Frontend has no edit/delete yet — the page only creates, lists, filters and deletes |
 | 3 | Budgets (utilization, concurrency-safe update) | In Progress | Service, routes, controller, validator, the atomic increment and the pure threshold maths are done, and a transaction increments its budget inside the same `$transaction`. `BudgetsPage` with `BudgetCard`/`BudgetProgress`/`BudgetForm` is built and the alert chain is verified live against Neon. CRUD + concurrency integration tests are still unrun — blocked on `TEST_DATABASE_URL` |
 | 4 | Savings Goals | In Progress | Backend service, CRUD routes/controller/validator and tests are done (`/api/savings-goals`, unit tests passing). Frontend goal view still open; the DB-backed HTTP suite is written but unrun — blocked on `TEST_DATABASE_URL` |
-| 5 | Dashboard | Not Started | |
+| 5 | Dashboard | In Progress | Aggregation endpoint (`GET /api/dashboard`) and the full dashboard UI (summary cards, category chart, recent list, skeleton loading) are done; unit + component tests pass and the endpoint was manually verified against 540 seeded rows, but the DB-backed HTTP suite is unrun — blocked on `TEST_DATABASE_URL` |
 | 6 | Subscriptions | Not Started | |
 | 7 | Rule Engine | Not Started | |
 | 8 | Forecasting | Not Started | |
@@ -175,9 +175,48 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 - [ ] Frontend goal view
 
 ### Dashboard
-- [ ] Aggregation query/service
-- [ ] Recharts integration
-- [ ] Frontend page
+- [x] `dashboardService` aggregation — `totalBalance` (all-time income −
+      expenses), plus `totalIncome`, `totalExpenses` and `savings` scoped to a
+      `period` (default current UTC month). Period and category sums come from
+      Prisma `groupBy`, never a JS loop over the ledger; transfers are excluded
+      from both
+- [x] Routes/controller/validator — `GET /api/dashboard?period=YYYY-MM`,
+      session-gated; the query schema reuses the shared `yearMonth` rule
+- [x] Category breakdown — grouped by `categoryId`, each row carrying amount +
+      percentage; the user's categories load alongside the aggregates so the
+      dashboard needs one database round trip rather than a sequential name
+      lookup
+- [x] Recent transactions in the same payload (last 5) so the page is one
+      request, plus an `aiSummary: null` slot for Phase 11
+- [x] Recharts integration — stable per-category colours in
+      `client/src/utils/categoryColors.js` (name → palette hex + Badge tone,
+      deterministic fallback for unknown categories), donut chart plus
+      readable legend
+- [x] Category colour consistency — the same mapping drives the chart slice,
+      the legend swatch and the transaction Badge, so Food is amber in the
+      donut and in the Transactions ledger; Badge tones swap to their
+      dark-mode tokens while the chart keeps its mid-tone palette
+- [x] Frontend page — four `SummaryCard`s (1/2/4 columns), category chart and
+      compact recent list (2-column below/above 1024px), AI callout rendered
+      only when `aiSummary` is present
+- [x] Loading uses skeleton summary cards, chart and rows, not a spinner
+- [x] `TransactionItem` gained a `compact` variant for the recent list
+- [x] Tests: dashboard service/unit suite (period boundaries, all-time vs
+      period totals, negative savings, category names/percentages, recent rows)
+      and client tests for `SummaryCard`, colour stability/tones, formatters,
+      `TransactionItem` badges and the page wiring — passing. The HTTP suite in
+      `tests/integration/dashboard.test.js` is written but unrun: no
+      `TEST_DATABASE_URL` on this machine
+- [x] Verified against 540 seeded rows with a temporary scoped user (cleaned
+      up afterwards): summary and category sums matched a manual JS sum
+      exactly, recent rows matched the expected order, transfers were excluded
+      and `aiSummary` was `null`. Aggregation service p100 ~1.1s; HTTP endpoint
+      median ~1.4s against remote Neon, with occasional network-tail requests
+      above 2s
+- [x] Browser-checked at 1280 / 768 / 390 px and in light/dark mode: 4/2/1
+      summary columns, chart and recent list stack below `lg`, chart colours
+      stay legible in both themes, Food badge is amber in both, and the AI
+      callout is absent when `aiSummary` is `null`
 
 ### Subscriptions
 - [ ] Prisma model
@@ -231,6 +270,27 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
 `architecture.md` / `database-schema.md`, with date and reason — e.g. a
 feature descoped, a different library used, a schema field renamed.)
 
+- 2026-10-19 — `totalBalance` on the dashboard is all-time net (income minus
+  expenses), while `totalIncome`, `totalExpenses` and `savings` are scoped to
+  the requested period (default: current UTC month). An accumulated balance is
+  what "Total Balance" means on a finance dashboard; scoping it to the month
+  would just restate `savings`. Transfers are excluded from both, because with
+  no account model they are neither earned nor spent. The same response also
+  carries the latest five transactions and `aiSummary: null`, so the page needs
+  one request and Phase 11 can fill the callout without changing the shape.
+- 2026-10-19 — Added **Recharts** (3.10.1, MIT) to the client for the category
+  donut, as named in `features.md`. It is free and therefore within principle 6.
+  The category-to-colour mapping lives in
+  `client/src/utils/categoryColors.js` so the same category keeps the same
+  colour everywhere and an unknown category hashes to a stable fallback instead
+  of being randomised per render. The production build now crosses Vite's
+  500 kB chunk warning; accepted for the dashboard rather than hand-rolling a
+  chart.
+- 2026-10-19 — `formatMoney` now handles negative paise (`-₹1,500.00`) by
+  splitting the absolute value into rupees and paise. The previous arithmetic
+  produced a negative rupee part and a negative paise part
+  (`₹-1,500.-00`) as soon as a figure could be negative, which the dashboard's
+  savings card can be.
 - 2026-10-19 — The shared field schemas (`paise`, `uuid`, `isoDate`, and the new
   `yearMonth`) moved out of `transactionValidator.js` into
   `validators/commonValidator.js`. Budgets validate a limit against the same
