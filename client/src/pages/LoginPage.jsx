@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 
 import AuthLayout from '../components/auth/AuthLayout.jsx';
@@ -37,6 +38,7 @@ export default function LoginPage() {
   const [touched, setTouched] = useState({});
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const formIsValid = Object.entries(VALIDATORS).every(
     ([field, validate]) => validate(values[field]) === null,
@@ -128,7 +130,7 @@ export default function LoginPage() {
         />
         <Input
           label="Password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           name="password"
           value={values.password}
           onChange={handleChange}
@@ -136,6 +138,17 @@ export default function LoginPage() {
           error={touched.password ? errors.password : undefined}
           placeholder="••••••••"
           autoComplete="current-password"
+          trailing={
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              icon={showPassword ? EyeOff : Eye}
+              onClick={() => setShowPassword((current) => !current)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showPassword}
+            />
+          }
         />
 
         <Button
