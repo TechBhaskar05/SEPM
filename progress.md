@@ -20,7 +20,7 @@ Mid-sem scope = Increments 1–4 below, at minimum. Everything past that is
 | 1 | Foundation (auth, skeleton, DB, deploy pipeline) | In Progress | Design tokens, AppShell layout route, `components/common/` primitive set, Prisma schema + migration, and the backend auth flow (register/login/me with tests) are done; frontend login, rate limiting, `TEST_DATABASE_URL` and deploy pipeline still open |
 | 2 | Transactions (CRUD, idempotency) | Done | CRUD + idempotent creation over HTTP, integration tests passing. Budget increment is wired into create (see Budgets). Frontend has no edit/delete yet — the page only creates, lists, filters and deletes |
 | 3 | Budgets (utilization, concurrency-safe update) | In Progress | Service, routes, controller, validator, the atomic increment and the pure threshold maths are done, and a transaction increments its budget inside the same `$transaction`. `BudgetsPage` with `BudgetCard`/`BudgetProgress`/`BudgetForm` is built and the alert chain is verified live against Neon. CRUD + concurrency integration tests are still unrun — blocked on `TEST_DATABASE_URL` |
-| 4 | Savings Goals | Not Started | |
+| 4 | Savings Goals | In Progress | Backend service, CRUD routes/controller/validator and tests are done (`/api/savings-goals`, unit tests passing). Frontend goal view still open; the DB-backed HTTP suite is written but unrun — blocked on `TEST_DATABASE_URL` |
 | 5 | Dashboard | Not Started | |
 | 6 | Subscriptions | Not Started | |
 | 7 | Rule Engine | Not Started | |
@@ -161,10 +161,18 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       inside the same `$transaction`
 
 ### Savings Goals
-- [ ] Prisma model
-- [ ] `goalService.calculateRequiredContribution`
+- [x] Prisma model (already part of the initial migration)
+- [x] `goalService.calculateRequiredMonthlyContribution(goal)` — pure function
+      (maths in `goalMath.js`, re-exported by `goalService.js`); integer paise,
+      rounds up so the goal is never a paisa short
+- [x] CRUD routes/controller/validator — `GET|POST /api/savings-goals`,
+      `GET|PATCH|DELETE /api/savings-goals/:id`; every query is scoped by
+      `userId`, and a foreign goal returns 404 rather than 403
+- [x] Tests: 50 unit tests in `tests/unit/goalService.test.js` (pure maths,
+      service CRUD, validator rules) — passing. The HTTP CRUD suite in
+      `tests/integration/goal.test.js` is written but unrun: no
+      `TEST_DATABASE_URL` on this machine
 - [ ] Frontend goal view
-- [ ] Tests: unit test for contribution math
 
 ### Dashboard
 - [ ] Aggregation query/service
@@ -262,6 +270,15 @@ feature descoped, a different library used, a schema field renamed.)
   response (and therefore to the stored idempotent body), reporting only the
   thresholds *that transaction* crossed. Replays return it verbatim, so a retry
   does not re-raise an alert the user already saw.
+- 2026-10-19 — Goal contribution maths rounds **up** to a whole paisa and treats
+  an overdue goal as the whole remainder due now. Rounding down would leave the
+  goal short at the deadline, and returning 0 for a past deadline would claim
+  nothing more is needed; a goal already at or above its target always requires
+  0, even if the deadline passed. Calendar dates are compared in UTC (matching
+  `periodForDate` in `budgetMath.js`), and "deadline this month" counts as one
+  contribution. The validator deliberately accepts past deadlines so an
+  already-missed goal can be recorded and returned with `isOverdue: true`;
+  rejecting them would make that edge case unreachable.
 
 - 2026-10-18 — Integration tests **require** `TEST_DATABASE_URL` and throw
   rather than falling back to `DATABASE_URL`. `conventions.md` suggests "a test

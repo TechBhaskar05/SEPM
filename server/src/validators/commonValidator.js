@@ -23,6 +23,12 @@ export const paise = z
   .positive('Amount must be greater than zero')
   .max(PAISE_MAX, 'Amount is too large');
 
+/** Same money rule as `paise`, but 0 is allowed (e.g. a goal's savedAmount). */
+export const nonNegativePaise = z
+  .int('Amount must be an integer number of paise (e.g. 124900 for ₹1,249.00)')
+  .min(0, 'Amount cannot be negative')
+  .max(PAISE_MAX, 'Amount is too large');
+
 export const uuid = z.uuid('Must be a valid UUID');
 
 export const isoDate = z
