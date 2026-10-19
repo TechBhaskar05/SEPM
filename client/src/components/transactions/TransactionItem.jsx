@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 
 import Badge from '../common/Badge.jsx';
+import { categoryTone } from '../../utils/categoryColors.js';
 import { formatDate, formatSignedMoney } from '../../utils/formatters.js';
 
 /**
@@ -15,18 +16,6 @@ import { formatDate, formatSignedMoney } from '../../utils/formatters.js';
  * colour. Danger red is reserved for budget overruns - a list where every
  * spend is red reads as an emergency rather than a record.
  */
-
-const CATEGORY_TONES = {
-  food: 'warning',
-  transport: 'info',
-  groceries: 'success',
-  housing: 'primary',
-  utilities: 'info',
-  salary: 'success',
-  entertainment: 'neutral',
-  health: 'danger',
-  other: 'neutral',
-};
 
 function categoryLabel(transaction) {
   return transaction.category?.name ?? 'Uncategorised';
@@ -55,7 +44,12 @@ function Actions({ onEdit, onDelete }) {
   );
 }
 
-function TransactionItem({ transaction: t, onEdit, onDelete }) {
+function TransactionItem({
+  transaction: t,
+  onEdit,
+  onDelete,
+  compact = false,
+}) {
   const amount = formatSignedMoney(t.amount, t.type);
   const amountColour =
     t.type === 'income'
@@ -64,13 +58,37 @@ function TransactionItem({ transaction: t, onEdit, onDelete }) {
         ? 'text-text-secondary'
         : 'text-text';
 
+  // Condensed variant for preview surfaces (the dashboard's recent list):
+  // one line of description, category and date, with no hover actions. It
+  // shares the amount formatting and colour rules with the full row so the
+  // two can never disagree about what an income or a transfer looks like.
+  if (compact) {
+    return (
+      <li className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-text">
+            {t.description}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-text-secondary">
+            {categoryLabel(t)} · {formatDate(t.date)}
+          </p>
+        </div>
+        <span
+          className={`numbers shrink-0 font-mono text-sm font-semibold tabular-nums ${amountColour}`}
+        >
+          {amount}
+        </span>
+      </li>
+    );
+  }
+
   return (
     <li className="group relative border-b border-border last:border-b-0">
       {/* ---------- desktop row ---------- */}
       <div className="hidden items-center gap-4 px-4 py-3 md:flex">
         <div className="w-40 shrink-0">
           <Badge
-            tone={CATEGORY_TONES[t.category?.slug] ?? 'neutral'}
+            tone={categoryTone(categoryLabel(t))}
             variant="subtle"
             size="sm"
           >
@@ -119,7 +137,7 @@ function TransactionItem({ transaction: t, onEdit, onDelete }) {
 
         <div className="mt-1.5 flex items-center gap-2 text-xs text-text-secondary">
           <Badge
-            tone={CATEGORY_TONES[t.category?.slug] ?? 'neutral'}
+            tone={categoryTone(categoryLabel(t))}
             variant="subtle"
             size="sm"
           >

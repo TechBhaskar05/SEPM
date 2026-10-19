@@ -8,6 +8,7 @@ import errorHandler from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import budgetRoutes from './routes/budgetRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
 import goalRoutes from './routes/goalRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 
@@ -23,6 +24,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/savings-goals', goalRoutes);
 
 app.get('/api/health', (_req, res) => {

@@ -24,11 +24,17 @@ export function formatMoney(paise) {
 
   // Split into whole rupees and leftover paise rather than dividing once and
   // re-formatting: 50 paise has to render as 0.50, and Math.round(value / 100)
-  // sends it to 1.00.
-  const rupees = Math.floor(value / PAISE_PER_RUPEE);
-  const remainder = value % PAISE_PER_RUPEE;
+  // sends it to 1.00. Work on the absolute value so a negative figure - a
+  // month where expenses outran income, for instance - renders "-₹1.50"
+  // instead of a negative rupee part glued to a negative paise part.
+  const negative = value < 0;
+  const absolute = Math.abs(value);
+  const rupees = Math.floor(absolute / PAISE_PER_RUPEE);
+  const remainder = absolute % PAISE_PER_RUPEE;
 
-  return `₹${RUPEE.format(rupees)}.${String(remainder).padStart(2, '0')}`;
+  return `${negative ? '-' : ''}₹${RUPEE.format(rupees)}.${String(
+    remainder,
+  ).padStart(2, '0')}`;
 }
 
 /**
