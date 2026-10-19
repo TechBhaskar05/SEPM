@@ -10,6 +10,7 @@ import budgetRoutes from './routes/budgetRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import goalRoutes from './routes/goalRoutes.js';
+import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 
 const app = express();
@@ -26,6 +27,7 @@ app.use('/api/budgets', budgetRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/savings-goals', goalRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
