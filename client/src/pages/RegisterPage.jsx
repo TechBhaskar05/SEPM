@@ -112,10 +112,15 @@ export default function RegisterPage() {
           ...current,
           ...Object.fromEntries(fieldDetails.map(([field]) => [field, true])),
         }));
-        setErrors((current) => ({ ...current, ...Object.fromEntries(fieldDetails) }));
+        setErrors((current) => ({
+          ...current,
+          ...Object.fromEntries(fieldDetails),
+        }));
       } else {
         toast.error(
-          error.status === 409 ? 'Email already in use' : 'Could not create account',
+          error.status === 409
+            ? 'Email already in use'
+            : 'Could not create account',
           { description: error.message },
         );
       }
@@ -181,9 +186,7 @@ export default function RegisterPage() {
           value={values.confirmPassword}
           onChange={handleChange}
           onBlur={handleBlur}
-          error={
-            touched.confirmPassword ? errors.confirmPassword : undefined
-          }
+          error={touched.confirmPassword ? errors.confirmPassword : undefined}
           placeholder="••••••••"
           autoComplete="new-password"
         />

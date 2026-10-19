@@ -6,7 +6,10 @@ export default [
   { ignores: ['node_modules', 'coverage', 'src/generated'] },
   js.configs.recommended,
   {
-    files: ['**/*.js'],
+    // `.mjs` as well as `.js`: precheck.mjs is a Node script too, and leaving
+    // it out meant it got none of the node globals below - hence `console` and
+    // `process` reported as undefined in a file that uses nothing else.
+    files: ['**/*.{js,mjs}'],
     languageOptions: {
       ecmaVersion: 'latest',
       globals: {

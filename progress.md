@@ -19,7 +19,7 @@ Mid-sem scope = Increments 1–4 below, at minimum. Everything past that is
 |---|---|---|---|
 | 1 | Foundation (auth, skeleton, DB, deploy pipeline) | In Progress | Design tokens, AppShell layout route, `components/common/` primitive set, Prisma schema + migration, and the backend auth flow (register/login/me with tests) are done; frontend login, rate limiting, `TEST_DATABASE_URL` and deploy pipeline still open |
 | 2 | Transactions (CRUD, idempotency) | Done | CRUD + idempotent creation over HTTP, integration tests passing. Budget increment is wired into create (see Budgets). Frontend has no edit/delete yet — the page only creates, lists, filters and deletes |
-| 3 | Budgets (utilization, concurrency-safe update) | In Progress | Service, routes, controller, validator and the atomic increment are done, and a transaction increments its budget inside the same `$transaction`. Utilization/threshold maths are pure and unit tested; CRUD + concurrency integration tests are written but unrun — they need `TEST_DATABASE_URL`. No frontend yet |
+| 3 | Budgets (utilization, concurrency-safe update) | In Progress | Service, routes, controller, validator, the atomic increment and the pure threshold maths are done, and a transaction increments its budget inside the same `$transaction`. `BudgetsPage` with `BudgetCard`/`BudgetProgress`/`BudgetForm` is built and the alert chain is verified live against Neon. CRUD + concurrency integration tests are still unrun — blocked on `TEST_DATABASE_URL` |
 | 4 | Savings Goals | Not Started | |
 | 5 | Dashboard | Not Started | |
 | 6 | Subscriptions | Not Started | |
@@ -143,6 +143,18 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       local Postgres on this machine, and the Neon dev database is off limits
       until a branch exists. Blocked on `TEST_DATABASE_URL`
 - [ ] Frontend budget view
+- [x] Frontend budget view — `BudgetsPage` (1/2/3 column grid, dashed
+      "New Budget" tile as the last grid item, `EmptyState` spanning the grid),
+      `BudgetCard`, `BudgetProgress`, `BudgetForm`. Toasts fire once per budget
+      per period per threshold, suppressed via `sessionStorage` so a reload does
+      not re-shout. **Backend chain verified live against Neon** (login ->
+      categories -> create budget -> 85% expense returns
+      `budgetAlert: [0.8]` -> 105% returns `[1]` -> a further expense returns
+      `null`). **Rendered UI verified in headless Chrome** at 1440/834/390:
+      3/2/1 columns confirmed from `gridTemplateColumns`, and the fill colour
+      read back as the expected token at 79,999 / 80,000 / 100,000 paise.
+      Still no transaction was ever created against a live budget from the UI,
+      and the page has not been driven by hand
 - [ ] Editing or deleting a transaction does not yet move `Budget.spent` back.
       Deleting an expense leaves the budget overstated, and updating its amount
       leaves it at the old value. Both need the mirror-image atomic decrement
@@ -223,6 +235,29 @@ feature descoped, a different library used, a schema field renamed.)
   budget.spent" but does not say which budget, and a missing budget is a setup
   gap rather than a client error — failing the write would be the wrong
   trade-off.
+- 2026-10-19 — A budget needs a real `categoryId` UUID, and the Category table
+  was empty with no endpoint to read it, so `GET /api/categories` was added
+  (read-only, session-gated, returns the user's own categories plus the
+  `userId: null` system defaults sorted by name) together with
+  `server/prisma/seed.js`, run manually via `npm run db:seed`. The seed is a
+  script, not a migration — it inserts rows and never deletes any, because
+  `onDelete: SetNull` means dropping a category silently uncategorises somebody's
+  transactions.
+- 2026-10-19 — `Button` gained an `iconOnly` prop. Icon-only controls (the
+  card's edit button) were the first thing that wanted a square box: the
+  shared `px-3`/`px-4`/`px-5` sizing left a pill far wider than the glyph in
+  it. Overriding with a width class would have fought the padding class on CSS
+  source order, which is the kind of thing that fails silently.
+- 2026-10-19 — `formatPeriod()` renders a period with `timeZone: 'UTC'` so a
+  bare "2026-10" does not get re-read as local midnight and land in the
+  previous month west of Greenwich.
+- 2026-10-19 — The "New Budget" tile and `BudgetCard` both carry `min-h-46`.
+  Grid `stretch` was hiding a 6px mismatch: the tile only reached the cards'
+  height when it shared a row with one, so in a single-column layout — where it
+  is always the last item, alone — it fell back to its own shorter minimum and
+  sat under the cards above it. `h-full` alone does not fix this; stretch can
+  only ever reach as far as the tallest sibling, so both sides need the same
+  floor for the case where there is no sibling.
 - 2026-10-19 — Creating an expense may attach a `budgetAlert` to the transaction
   response (and therefore to the stored idempotent body), reporting only the
   thresholds *that transaction* crossed. Replays return it verbatim, so a retry

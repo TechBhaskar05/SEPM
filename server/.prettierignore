@@ -1,3 +1,8 @@
 node_modules
 coverage
 package-lock.json
+
+# Generated Prisma client. Machine-written and rewritten on every `prisma
+# generate`, so formatting it is churn that gets thrown away - and eslint
+# already ignores this directory for the same reason.
+src/generated

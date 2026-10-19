@@ -67,7 +67,9 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const user = await login(values);
-      toast.success('Welcome back', { description: `Signed in as ${user.email}.` });
+      toast.success('Welcome back', {
+        description: `Signed in as ${user.email}.`,
+      });
     } catch (error) {
       // Server-side validation carries per-field details: show them on the
       // fields they belong to. Everything else is a whole-form problem.
@@ -80,11 +82,17 @@ export default function LoginPage() {
           ...current,
           ...Object.fromEntries(fieldDetails.map(([field]) => [field, true])),
         }));
-        setErrors((current) => ({ ...current, ...Object.fromEntries(fieldDetails) }));
+        setErrors((current) => ({
+          ...current,
+          ...Object.fromEntries(fieldDetails),
+        }));
       } else {
-        toast.error(error.status === 401 ? 'Sign-in failed' : 'Could not sign in', {
-          description: error.message,
-        });
+        toast.error(
+          error.status === 401 ? 'Sign-in failed' : 'Could not sign in',
+          {
+            description: error.message,
+          },
+        );
       }
     } finally {
       setSubmitting(false);

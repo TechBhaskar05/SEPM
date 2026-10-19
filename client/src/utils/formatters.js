@@ -62,6 +62,31 @@ export function todayIso() {
 }
 
 /**
+ * The current month as the "YYYY-MM" period a budget belongs to.
+ *
+ * Local time, matching `todayIso` above rather than the server's UTC
+ * `periodForDate`. The two agree on the month a transaction lands in because a
+ * transaction date travels as a bare "YYYY-MM-DD", which parses as UTC
+ * midnight - the offset never moves it across a month boundary.
+ */
+export function currentPeriod() {
+  return todayIso().slice(0, 7);
+}
+
+/** "2026-10" -> "October 2026". Anything unparseable passes through. */
+export function formatPeriod(period) {
+  if (!period) return '';
+  const date = new Date(`${period}-01T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return String(period);
+
+  return date.toLocaleDateString('en-IN', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/**
  * Parses a rupee amount the user typed ("1,249.50", "1249.5", "₹900") into
  * integer paise, or null if it is not a usable positive amount.
  *

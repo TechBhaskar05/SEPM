@@ -7,6 +7,7 @@ import morgan from 'morgan';
 import errorHandler from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import budgetRoutes from './routes/budgetRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 
 const app = express();
@@ -20,6 +21,7 @@ app.use(morgan('dev'));
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/budgets', budgetRoutes);
+app.use('/api/categories', categoryRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });

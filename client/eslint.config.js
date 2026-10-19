@@ -40,5 +40,14 @@ export default [
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    // Config files run in Node, not in the browser, and are the only ones
+    // allowed to say so. `process.env` in vite.config.js is the whole point of
+    // the VITEST branch, so the globals are scoped by file pattern here rather
+    // than annotated at each call site - one definition of what each kind of
+    // file is permitted to touch, instead of a comment per line.
+    files: ['*.config.js'],
+    languageOptions: { globals: globals.node },
+  },
   prettier,
 ];

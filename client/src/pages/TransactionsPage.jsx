@@ -59,7 +59,7 @@ export default function TransactionsPage() {
 
   const hasFilters = Object.values(filters).some(Boolean);
 
-/**
+  /**
    * Fetching runs against the server-side filters the API already supports
    * (category, date range). `search` and `paymentMethod` are not query
    * parameters yet, so they are applied in `visible` to the rows already
