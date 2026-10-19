@@ -7,15 +7,21 @@ import Select from '../common/Select.jsx';
 import {
   createTransaction,
   newIdempotencyKey,
+  updateTransaction,
 } from '../../services/transactionService.js';
-import { rupeesToPaise, todayIso } from '../../utils/formatters.js';
+import {
+  formatRupeesInput,
+  rupeesToPaise,
+  todayIso,
+} from '../../utils/formatters.js';
 
 /**
- * Add-transaction form, rendered inside a Modal.
+ * Add/edit-transaction form, rendered inside a Modal.
  *
  * Owns two things the page must not have to think about: the Idempotency-Key
  * (regenerated per open, held across retries of the same submission) and
- * converting what the user typed into integer paise.
+ * converting what the user typed into integer paise. In edit mode it prefills
+ * the stored values and saves through PATCH instead.
  */
 
 const TYPES = [
@@ -33,33 +39,70 @@ const PAYMENT_METHODS = [
   'Auto-pay',
 ];
 
-const CATEGORY_OPTIONS = [
-  { value: '', label: 'Uncategorised' },
-  { value: 'food', label: 'Food & Dining' },
-  { value: 'transport', label: 'Transport' },
-  { value: 'groceries', label: 'Groceries' },
-  { value: 'housing', label: 'Housing' },
-  { value: 'utilities', label: 'Utilities' },
-  { value: 'salary', label: 'Salary' },
-  { value: 'entertainment', label: 'Entertainment' },
-  { value: 'health', label: 'Health' },
-  { value: 'other', label: 'Other' },
-];
+/** "2026-10-19T00:00:00.000Z" or a Date -> the value a date input expects. */
+function toDateInput(value) {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
 
-const EMPTY = {
-  amount: '',
-  type: 'expense',
-  categoryId: '',
-  description: '',
-  date: todayIso(),
-  paymentMethod: '',
-};
+function initialValues(transaction) {
+  if (!transaction) {
+    return {
+      amount: '',
+      type: 'expense',
+      categoryId: '',
+      description: '',
+      date: todayIso(),
+      paymentMethod: '',
+    };
+  }
 
-export default function TransactionForm({ onClose, onCreated }) {
-  const [values, setValues] = useState(EMPTY);
+  return {
+    amount: formatRupeesInput(transaction.amount),
+    type: transaction.type ?? 'expense',
+    categoryId: transaction.categoryId ?? '',
+    description: transaction.description ?? '',
+    date: toDateInput(transaction.date) || todayIso(),
+    paymentMethod: transaction.paymentMethod ?? '',
+  };
+}
+
+export default function TransactionForm({
+  transaction = null,
+  categories = [],
+  onClose,
+  onSaved,
+}) {
+  const editing = Boolean(transaction);
+  const [values, setValues] = useState(() => initialValues(transaction));
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+
+  const categoryOptions = useMemo(() => {
+    const options = [
+      { value: '', label: 'Uncategorised' },
+      ...categories.map((category) => ({
+        value: category.id,
+        label: category.name,
+      })),
+    ];
+
+    // If the category list failed to load (or is still in flight), keep the
+    // row's current category selectable instead of silently showing blank.
+    if (
+      transaction?.category &&
+      !options.some((option) => option.value === transaction.category.id)
+    ) {
+      options.push({
+        value: transaction.category.id,
+        label: transaction.category.name,
+      });
+    }
+
+    return options;
+  }, [categories, transaction]);
 
   // One key per open/submit cycle. Held in a ref rather than state so a retry
   // reuses it (that is the point of the header) while reopening the modal
@@ -107,21 +150,24 @@ export default function TransactionForm({ onClose, onCreated }) {
     setSubmitting(true);
     setSubmitError(null);
 
-    try {
-      const transaction = await createTransaction(
-        {
-          type: values.type,
-          amount: paise,
-          description: values.description.trim(),
-          date: values.date,
-          categoryId: values.categoryId || null,
-          paymentMethod: values.paymentMethod || null,
-          source: 'manual',
-        },
-        idempotencyKey.current,
-      );
+    const payload = {
+      type: values.type,
+      amount: paise,
+      description: values.description.trim(),
+      date: values.date,
+      categoryId: values.categoryId || null,
+      paymentMethod: values.paymentMethod || null,
+    };
 
-      onCreated(transaction);
+    try {
+      const saved = editing
+        ? await updateTransaction(transaction.id, payload)
+        : await createTransaction(
+            { ...payload, source: 'manual' },
+            idempotencyKey.current,
+          );
+
+      onSaved(saved);
     } catch (error) {
       // Server-side field errors land on the fields themselves; anything else
       // is a banner above the submit button.
@@ -191,7 +237,7 @@ export default function TransactionForm({ onClose, onCreated }) {
 
       <Select
         label="Category"
-        options={CATEGORY_OPTIONS}
+        options={categoryOptions}
         value={values.categoryId}
         onChange={(event) => setField('categoryId', event.target.value)}
       />
@@ -238,7 +284,7 @@ export default function TransactionForm({ onClose, onCreated }) {
       )}
 
       <Button type="submit" fullWidth size="lg" loading={submitting}>
-        {submitting ? 'Saving…' : 'Add transaction'}
+        {submitting ? 'Saving…' : editing ? 'Save changes' : 'Add transaction'}
       </Button>
 
       <Button

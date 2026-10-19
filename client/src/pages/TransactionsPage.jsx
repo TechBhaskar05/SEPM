@@ -16,19 +16,7 @@ import {
   listTransactions,
   deleteTransaction,
 } from '../services/transactionService.js';
-
-const CATEGORY_OPTIONS = [
-  { value: '', label: 'All categories' },
-  { value: 'food', label: 'Food & Dining' },
-  { value: 'transport', label: 'Transport' },
-  { value: 'groceries', label: 'Groceries' },
-  { value: 'housing', label: 'Housing' },
-  { value: 'utilities', label: 'Utilities' },
-  { value: 'salary', label: 'Salary' },
-  { value: 'entertainment', label: 'Entertainment' },
-  { value: 'health', label: 'Health' },
-  { value: 'other', label: 'Other' },
-];
+import { listCategories } from '../services/categoryService.js';
 
 const PAYMENT_METHOD_OPTIONS = [
   { value: '', label: 'Any method' },
@@ -53,11 +41,24 @@ export default function TransactionsPage() {
   const userId = useAuthStore((state) => state.user?.id);
 
   const [transactions, setTransactions] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   const hasFilters = Object.values(filters).some(Boolean);
+
+  const categoryOptions = useMemo(
+    () => [
+      { value: '', label: 'All categories' },
+      ...categories.map((category) => ({
+        value: category.id,
+        label: category.name,
+      })),
+    ],
+    [categories],
+  );
 
   /**
    * Fetching runs against the server-side filters the API already supports
@@ -143,21 +144,50 @@ export default function TransactionsPage() {
     });
   }, [transactions, filters.search, filters.paymentMethod]);
 
-  const openForm = useCallback(() => setFormOpen(true), []);
-  const closeForm = useCallback(() => setFormOpen(false), []);
+  useEffect(() => {
+    let cancelled = false;
+
+    listCategories()
+      .then((result) => {
+        if (!cancelled) setCategories(result);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const openCreate = useCallback(() => {
+    setEditing(null);
+    setFormOpen(true);
+  }, []);
+
+  const openEdit = useCallback((transaction) => {
+    setEditing(transaction);
+    setFormOpen(true);
+  }, []);
+
+  const closeForm = useCallback(() => {
+    setFormOpen(false);
+    setEditing(null);
+  }, []);
 
   useEffect(() => {
     setAction({
       label: 'Add Transaction',
       icon: Plus,
-      onClick: openForm,
+      onClick: openCreate,
     });
     return () => setAction(null);
-  }, [setAction, openForm]);
+  }, [setAction, openCreate]);
 
-  function handleCreated(transaction) {
+  function handleSaved(transaction) {
+    const wasEditing = Boolean(editing);
+
     setFormOpen(false);
-    toast.success('Transaction added', {
+    setEditing(null);
+    toast.success(wasEditing ? 'Transaction updated' : 'Transaction added', {
       description: transaction.description,
     });
     fetchTransactions();
@@ -176,15 +206,6 @@ export default function TransactionsPage() {
     } catch (deleteError) {
       toast.error('Could not delete', { description: deleteError?.message });
     }
-  }
-
-  function handleEdit(transaction) {
-    // Editing lands with the update form; until then the row still opens
-    // the create form so the affordance is not a dead control.
-    toast.info('Editing is not wired up yet', {
-      description: `${transaction.description} — open the form to add another`,
-    });
-    setFormOpen(true);
   }
 
   function clearFilters() {
@@ -210,7 +231,7 @@ export default function TransactionsPage() {
           size="sm"
           aria-label="Filter by category"
           className="w-40"
-          options={CATEGORY_OPTIONS}
+          options={categoryOptions}
           value={filters.categoryId}
           onChange={(event) =>
             setFilters((prev) => ({ ...prev, categoryId: event.target.value }))
@@ -275,9 +296,9 @@ export default function TransactionsPage() {
             transactions={visible}
             loading={loading}
             hasFilters={hasFilters}
-            onEdit={handleEdit}
+            onEdit={openEdit}
             onDelete={handleDelete}
-            onAdd={openForm}
+            onAdd={openCreate}
           />
         )}
       </Card>
@@ -285,11 +306,16 @@ export default function TransactionsPage() {
       <Modal
         open={formOpen}
         onClose={closeForm}
-        title="Add transaction"
+        title={editing ? 'Edit transaction' : 'Add transaction'}
         description="Amounts are stored in paise, so decimals are exact."
         size="md"
       >
-        <TransactionForm onClose={closeForm} onCreated={handleCreated} />
+        <TransactionForm
+          transaction={editing}
+          categories={categories}
+          onClose={closeForm}
+          onSaved={handleSaved}
+        />
       </Modal>
     </div>
   );
