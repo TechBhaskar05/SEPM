@@ -106,7 +106,7 @@ cover what it was previewing.
 ## Concurrency-safe budget updates
 
 - Never do `const budget = await getBudget(id); budget.spent += amount;
-  await save(budget);` — this is a read-then-write race condition.
+await save(budget);` — this is a read-then-write race condition.
 - Always do a single atomic update:
   `UPDATE "Budget" SET spent = spent + $1 WHERE id = $2` (raw SQL or Prisma's
   equivalent atomic update), ideally inside the same `$transaction` as the
@@ -133,6 +133,10 @@ cover what it was previewing.
 - Integration tests: for every route group, a `tests/integration/*.test.js`
   using Supertest against a test database (or a test schema in the same
   Postgres instance) — real DB, mocked Groq.
+- Commands: `npm test` / `npm run test:unit` run the unit suites.
+  `npm run test:integration` runs the DB-backed suites and refuses to start
+  without `TEST_DATABASE_URL`. `npm run test:all` runs both, so it needs a test
+  database too.
 - Required test cases (minimum, do not skip):
   - Budget concurrency test: fire N parallel "add transaction" requests
     against one budget, assert final `spent` equals the sum.
@@ -148,7 +152,7 @@ cover what it was previewing.
 - Branch per feature: `feature/<short-name>`, e.g. `feature/budget-service`.
 - Commit messages: `<type>: <short description>` — types: `feat`, `fix`,
   `test`, `docs`, `refactor`, `chore`. E.g. `feat: add atomic budget
-  increment in budgetService`.
+increment in budgetService`.
 - Keep commits small and focused — one logical change per commit, not one
   commit per day of work. This matters for the "Git commit history" evidence
   required in the submission.
@@ -158,6 +162,7 @@ cover what it was previewing.
 ## Environment variables (keep `.env.example` in sync with these)
 
 **Server (`server/.env.example`)**
+
 ```
 DATABASE_URL=
 DIRECT_URL=
@@ -166,11 +171,16 @@ GROQ_API_KEY=
 PORT=
 ```
 
+`PORT` defaults to **5001**, not 5000. macOS AirPlay Receiver listens on 5000
+and answers requests with a 403 before Express ever sees them; Render supplies
+`PORT` at runtime, so this default only affects local development.
+
 **Neon-specific note:** Neon's free tier autosuspends when idle and connects
 through a pooler (PgBouncer). Use the **pooled** connection string as
 `DATABASE_URL` (used by the app at runtime) and the **direct** connection
 string as `DIRECT_URL` (used only for `prisma migrate`). In
 `schema.prisma`:
+
 ```prisma
 datasource db {
   provider  = "postgresql"
@@ -178,13 +188,18 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 ```
+
 Running migrations against the pooled URL directly can fail or behave
 unexpectedly — always use `DIRECT_URL` for `npx prisma migrate dev/deploy`.
 
 **Client (`client/.env.example`)**
+
 ```
 VITE_API_BASE_URL=
 ```
+
+The example value points at `http://localhost:5001/api` to match the server's
+local default.
 
 Never commit real `.env` files or real keys — only `.env.example` with
 placeholder values, per the submission rubric's "no passwords/API keys"
