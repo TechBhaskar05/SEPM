@@ -20,7 +20,8 @@
     "test:integration": "vitest run tests/integration",
     "test:all": "vitest run",
     "test:watch": "vitest tests/unit",
-    "db:seed": "node prisma/seed.js"
+    "db:seed": "node prisma/seed.js",
+    "db:seed:demo": "node prisma/seedDemo.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
