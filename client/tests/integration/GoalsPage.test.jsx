@@ -14,7 +14,8 @@ vi.mock('../../src/services/goalService.js', () => ({
   deleteGoal: vi.fn(),
 }));
 
-const { listGoals } = await import('../../src/services/goalService.js');
+const { deleteGoal, listGoals } =
+  await import('../../src/services/goalService.js');
 
 /**
  * The page owns three pieces of behaviour worth pinning: the empty state, the
@@ -121,6 +122,45 @@ describe('GoalsPage — failures', () => {
 
     expect(await screen.findByText('No savings goals yet')).toBeInTheDocument();
     expect(listGoals).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('GoalsPage — the delete action', () => {
+  it('confirms, deletes, and refreshes the list', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    listGoals.mockResolvedValue([goalFixture()]);
+    deleteGoal.mockResolvedValue(undefined);
+
+    await renderPage();
+    await screen.findByRole('heading', { name: 'Japan trip' });
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Delete Japan trip goal' }));
+
+    expect(confirmSpy).toHaveBeenCalledWith('Delete the Japan trip goal?');
+    expect(deleteGoal).toHaveBeenCalledWith('goal-1');
+    expect(await screen.findByText('Goal deleted')).toBeInTheDocument();
+    expect(listGoals).toHaveBeenCalledTimes(2);
+
+    confirmSpy.mockRestore();
+  });
+
+  it('does nothing when the confirmation is dismissed', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    listGoals.mockResolvedValue([goalFixture()]);
+
+    await renderPage();
+    await screen.findByRole('heading', { name: 'Japan trip' });
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Delete Japan trip goal' }));
+
+    expect(deleteGoal).not.toHaveBeenCalled();
+    expect(listGoals).toHaveBeenCalledTimes(1);
+
+    confirmSpy.mockRestore();
   });
 });
 

@@ -8,7 +8,7 @@ import Skeleton from '../components/common/Skeleton.jsx';
 import GoalCard from '../components/goals/GoalCard.jsx';
 import GoalForm from '../components/goals/GoalForm.jsx';
 import { usePageHeader } from '../components/layout/pageHeaderContext.js';
-import { listGoals } from '../services/goalService.js';
+import { deleteGoal, listGoals } from '../services/goalService.js';
 import { toast } from '../store/toastStore.js';
 
 /**
@@ -96,6 +96,24 @@ export default function GoalsPage() {
     fetchGoals();
   }
 
+  async function handleDelete(goal) {
+    if (!window.confirm(`Delete the ${goal.name} goal?`)) {
+      return;
+    }
+
+    try {
+      await deleteGoal(goal.id);
+      toast.success('Goal deleted', {
+        description: goal.name,
+      });
+      fetchGoals();
+    } catch (deleteError) {
+      toast.error('Could not delete the goal', {
+        description: deleteError?.message,
+      });
+    }
+  }
+
   return (
     <div className="space-y-5">
       {error && (
@@ -130,7 +148,12 @@ export default function GoalsPage() {
       ) : (
         <div className="space-y-4">
           {goals.map((goal) => (
-            <GoalCard key={goal.id} goal={goal} onEdit={openEdit} />
+            <GoalCard
+              key={goal.id}
+              goal={goal}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+            />
           ))}
         </div>
       )}

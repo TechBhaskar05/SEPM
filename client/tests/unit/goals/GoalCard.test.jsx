@@ -173,3 +173,23 @@ describe('GoalCard — editing', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe('GoalCard — deleting', () => {
+  it('calls onDelete with the goal', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    const goal = renderCard({}, { onDelete });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Delete Japan trip goal' }),
+    );
+    expect(onDelete).toHaveBeenCalledWith(goal);
+  });
+
+  it('does not render a delete action when there is nowhere to send it', () => {
+    renderCard();
+    expect(
+      screen.queryByRole('button', { name: /delete .* goal/i }),
+    ).not.toBeInTheDocument();
+  });
+});

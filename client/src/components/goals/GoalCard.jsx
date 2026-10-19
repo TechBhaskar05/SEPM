@@ -1,4 +1,10 @@
-import { PartyPopper, Pencil, TrendingUp, TriangleAlert } from 'lucide-react';
+import {
+  PartyPopper,
+  Pencil,
+  Trash2,
+  TrendingUp,
+  TriangleAlert,
+} from 'lucide-react';
 
 import Badge from '../common/Badge.jsx';
 import Button from '../common/Button.jsx';
@@ -22,8 +28,9 @@ import { formatMoney, formatMonthYear } from '../../utils/formatters.js';
  *
  * @param {object} goal   A goal from GET /api/savings-goals.
  * @param {(goal: object) => void} [onEdit]
+ * @param {(goal: object) => void} [onDelete]
  */
-export default function GoalCard({ goal, onEdit }) {
+export default function GoalCard({ goal, onEdit, onDelete }) {
   const {
     name,
     savedAmount,
@@ -62,6 +69,17 @@ export default function GoalCard({ goal, onEdit }) {
                 // visible while focused, so a keyboard user can see it.
                 className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
               />
+            )}
+
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(goal)}
+                aria-label={`Delete ${name} goal`}
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-control text-text-secondary transition-colors opacity-100 enabled:hover:bg-danger-subtle enabled:hover:text-danger sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+              >
+                <Trash2 className="size-3.5" aria-hidden="true" />
+              </button>
             )}
 
             <Badge size="sm" tone={isOverdue ? 'danger' : 'neutral'}>
