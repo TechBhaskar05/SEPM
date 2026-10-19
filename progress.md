@@ -187,7 +187,14 @@ Status values: `Not Started`, `In Progress`, `Done`, `Blocked` (note why).
       than per month. `GoalForm` in a `Modal` covers name, target, saved-so-far
       and deadline, supports create/edit, and converts rupees to integer paise.
       45 new client tests across the ring, card, form and page; client suite 88
-      passing. Verified at 375px-equivalent DOM, not in a live browser yet
+      passing. Verified through the real forms in headless Chrome at 375px with
+      an in-memory adapter that still calls the server's `toGoalView`: a
+      ₹1,20,000 target with ₹30,000 saved and two months left showed
+      ₹45,000/month (manual check matched); a past deadline showed the
+      ₹1,50,000 remainder due now with no NaN; saving to target switched to the
+      success state; light and dark both rendered with 112px rings, 343px cards
+      and no horizontal overflow. No database was available, so the HTTP
+      integration suite remains unrun
 
 ### Dashboard
 
@@ -321,7 +328,12 @@ test:integration` runs the DB-backed suites and still refuses to start
   monthly-contribution sentence), and at three columns those lines wrap into a
   wall; one column lets each goal read as a plan. The progress indicator is a
   **circular ring** rather than `BudgetProgress`'s bar, so goals and budgets are
-  distinguishable by shape before a single label is read.
+  distinguishable by shape before a single label is read. On phones the ring
+  stacks above the saved/contribution block: side by side at 375px left the
+  monthly chip only ~174px wide, which wrapped it to four lines and made the
+  "small chip" the tallest element on the card. Stacking gives it the full card
+  width, keeps `Saved ₹X of ₹Y` on one line, and still places the ring beside
+  the text from `sm` up.
 - 2026-10-19 — The monthly contribution is a highlighted primary chip, not
   muted body text: it is the card's actionable answer. A met goal replaces it
   with `Goal reached! 🎉`, switches the ring and border to the success palette,

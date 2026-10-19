@@ -70,14 +70,14 @@ export default function GoalCard({ goal, onEdit }) {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-5 sm:gap-6">
+        <div className="mt-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
           <GoalProgressRing
             percent={progressPercent}
             label={`${name} progress`}
             achieved={isAchieved}
           />
 
-          <div className="min-w-0 flex-1">
+          <div className="w-full min-w-0 flex-1">
             <p className="text-sm text-text-secondary">
               Saved{' '}
               <span className="font-semibold text-text tabular-nums">
