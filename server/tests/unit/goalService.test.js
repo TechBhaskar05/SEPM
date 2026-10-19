@@ -68,12 +68,63 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('calculateRequiredMonthlyContribution — pure', () => {
-  it('spreads the remainder across the whole months left', () => {
-    // Oct 19 -> Jan 31 is 3 calendar months. ₹7,500 left -> ₹2,500/month.
-    expect(calculateRequiredMonthlyContribution(goalRow(), NOW)).toBe(250000);
+/**
+ * The four scenarios the contribution function is specified against.
+ *
+ * Each asserts the exact value AND that the result is a finite, non-negative
+ * integer. The extra assertions matter for the overdue case: an exact-value
+ * check alone on a divide-by-zero bug would pass only if it expected Infinity,
+ * and nothing here should ever be able to produce that.
+ */
+describe('calculateRequiredMonthlyContribution — specified edge cases', () => {
+  it('a goal several months out amortises the remainder', () => {
+    // Oct 19 2026 -> Jan 31 2027 is 3 calendar months.
+    // 1,000,000 - 250,000 = 750,000 paise, so 250,000 paise/month.
+    const result = calculateRequiredMonthlyContribution(goalRow(), NOW);
+
+    expect(result).toBe(250000);
+    expect(Number.isInteger(result)).toBe(true);
+    expect(result).toBeGreaterThanOrEqual(0);
   });
 
+  it('a goal due this month requires the whole remainder', () => {
+    const result = calculateRequiredMonthlyContribution(
+      goalRow({ deadline: '2026-10-31' }),
+      NOW,
+    );
+
+    expect(result).toBe(750000);
+    expect(Number.isInteger(result)).toBe(true);
+    expect(result).toBeGreaterThanOrEqual(0);
+  });
+
+  it('a goal with a past deadline requires the whole remainder, not 0', () => {
+    // Decided behaviour: there are no months left to spread the remainder
+    // over, so the full 750,000 paise is due now. Returning 0 would claim the
+    // goal needs nothing more; dividing by zero would give Infinity.
+    const result = calculateRequiredMonthlyContribution(
+      goalRow({ deadline: '2026-09-30' }),
+      NOW,
+    );
+
+    expect(result).toBe(750000);
+    expect(Number.isFinite(result)).toBe(true);
+    expect(Number.isInteger(result)).toBe(true);
+    expect(result).toBeGreaterThanOrEqual(0);
+  });
+
+  it('a goal already fully saved requires 0', () => {
+    const result = calculateRequiredMonthlyContribution(
+      goalRow({ savedAmount: 1000000 }),
+      NOW,
+    );
+
+    expect(result).toBe(0);
+    expect(result).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('calculateRequiredMonthlyContribution — pure', () => {
   it('rounds up to the next whole paisa so the goal is never short', () => {
     // 100000 / 3 = 33333.33 -> 33334, not 33333.
     expect(
@@ -84,29 +135,10 @@ describe('calculateRequiredMonthlyContribution — pure', () => {
     ).toBe(33334);
   });
 
-  it('requires the whole remainder when the deadline is later this month', () => {
-    expect(
-      calculateRequiredMonthlyContribution(
-        goalRow({ deadline: new Date('2026-10-31T00:00:00.000Z') }),
-        NOW,
-      ),
-    ).toBe(750000);
-  });
-
   it('requires the whole remainder on the deadline day', () => {
     expect(
       calculateRequiredMonthlyContribution(
         goalRow({ deadline: new Date('2026-10-19T00:00:00.000Z') }),
-        NOW,
-      ),
-    ).toBe(750000);
-  });
-
-  it('requires the whole remainder once the deadline has passed', () => {
-    // No months left to spread over, so the overdue amount is due now.
-    expect(
-      calculateRequiredMonthlyContribution(
-        goalRow({ deadline: new Date('2026-10-18T00:00:00.000Z') }),
         NOW,
       ),
     ).toBe(750000);
@@ -119,15 +151,6 @@ describe('calculateRequiredMonthlyContribution — pure', () => {
         NOW,
       ),
     ).toBe(750000);
-  });
-
-  it('returns 0 when the goal is exactly met', () => {
-    expect(
-      calculateRequiredMonthlyContribution(
-        goalRow({ savedAmount: 1000000 }),
-        NOW,
-      ),
-    ).toBe(0);
   });
 
   it('returns 0 when the goal is over-saved', () => {
